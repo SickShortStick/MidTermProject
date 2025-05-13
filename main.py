@@ -2,10 +2,14 @@ class File:
 
     def __init__(self, name):
         self.name = name
-        self.contents = ''
+        self.parent = None
+        self.contents = []
 
     def __str__(self):
-        return self.contents
+        result = ''
+        for line in self.contents:
+            result += line + '\n'
+        return result
 
 class Folder:
 
@@ -51,6 +55,7 @@ class FileSystem:
 
     def touch(self, file_name: str, destination_folder):
         new_file = File(file_name)
+        new_file.parent = destination_folder
         destination_folder.files[file_name] = new_file
     
     def rm(self, target_folder: Folder):
@@ -63,20 +68,42 @@ class FileSystem:
     def nwfiletxt(self, target_file: File):
         print(f'enter lines for {target_file.name}(/end/ means done)')
         line = input()
-        target_file.contents = ''
+        target_file.contents.clear()
         while line != '/end/':
-            target_file.contents += line + '\n'
+            target_file.contents.append(line)
             line = input()
 
     def appendtxt(self, target_file: File):
         print(f'enter lines for {target_file.name}(/end/ means done)')
         line = input()
         while line != '/end/':
-            target_file.contents += line + '\n'
+            target_file.contents.append(line)
             line = input()
         
-    def mv(self):
-        pass
+    def mv(self, target_entity, destinaiton_folder: Folder):
+        if type(target_entity) == Folder:
+            target_entity.parent.folders.pop(target_entity.name)
+            destinaiton_folder.folders[target_entity.name] = target_entity
+        else:
+            target_entity.parent.files.pop(target_entity.name)
+            destinaiton_folder.files[target_entity.name] = target_entity
+        target_entity.parent = destinaiton_folder
+
+    def rename(self, target_entity, new_name):
+        initial_name = target_entity.name
+        target_entity.name = new_name
+        if type(target_entity) == Folder:
+            target_entity.parent.folders.pop(initial_name)
+            target_entity.parent.folders[new_name] = target_entity
+        else:
+            target_entity.parent.files.pop(initial_name)
+            target_entity.parent.files[new_name] = target_entity
+
+    def deline(self, target_file: File,line):
+        if 0 <= (line - 1) < len(target_file.contents):
+            target_file.contents.pop(line - 1)
+        else:
+            print(f"Line {line} doesnt't exist")
 
 
 file_system = FileSystem()
@@ -161,8 +188,50 @@ def proccess_input():
                 print("file doesn't exist")
                 return None
             file_system.appendtxt(destination_folder.files.get(file_name))
+        case 'mv':
+            source_path = splitted_line[1]
+            destination_path = splitted_line[2]
+            splitted_line_slash = list(splitted_line[1].split('/'))
+            destination_folder, destination_path = get_destination_folder_and_path(destination_path)
+            if len(splitted_line_slash) == 1:
+                starting_folder, starting_path = file_system.current_folder, file_system.current_path
+            else:
+                splitted_line = ['', splitted_line[1][:len(splitted_line[1]) - len(splitted_line_slash[-1]) - 1]]
+                starting_folder, starting_path = get_destination_folder_and_path(splitted_line)
+            file_system.mv(starting_folder.files.get(splitted_line_slash[-1]) if '.txt' in source_path else starting_folder.folders.get(splitted_line_slash[-1]), destination_folder)
         case 'rename':
-            pass
+            splitted_line_slash = list(splitted_line[1].split('/'))
+            original_target_name = splitted_line_slash[-1]
+            new_name = splitted_line[-1]
+            source_path = splitted_line[1]
+            if len(splitted_line_slash) == 1:
+                destination_folder, destination_path = file_system.current_folder, file_system.current_path
+            else:
+                length_of_new_name = len(original_target_name)
+                splitted_line = ['', splitted_line[1][:len(splitted_line[1]) - length_of_new_name - 1]]
+                destination_folder, destination_path = get_destination_folder_and_path(splitted_line)
+            if destination_folder.files.get(original_target_name) == None:
+                print("file doesn't exist")
+                return None
+            if destination_folder.folders.get(original_target_name) == None:
+                print("folder doesn't exist")
+                return None
+            file_system.rename(destination_folder.files.get(original_target_name) if '.txt' in original_target_name else destination_folder.folders.get(original_target_name), new_name)
+        case 'deline':
+            splitted_line_slash = list(splitted_line[1].split('/'))
+            line_index = int(splitted_line[-1])
+            file_name = splitted_line_slash[-1]
+            if len(splitted_line_slash) == 1:
+                destination_folder, destination_path = file_system.current_folder, file_system.current_path
+            else:
+                length_of_file_name = len(splitted_line_slash[-1])
+                splitted_line = ['', splitted_line[1][:len(splitted_line[1]) - length_of_file_name - 1]]
+                destination_folder, destination_path = get_destination_folder_and_path(splitted_line)
+            if destination_folder.files.get(file_name) == None:
+                print("file doesn't exist")
+                return None
+            file_system.deline(destination_folder.files.get(file_name), line_index)
+
 
 
 
@@ -172,7 +241,6 @@ def traverse_linked_list(folders_path_list):
     temp_path = file_system.current_path
     for folder in folders_path_list:
         if folder == '..':
-            print(temp_path, temp_folder.name)
             temp_path = temp_path.removesuffix(f'{temp_folder.name}/')
             if temp_folder.parent == None:
                 print("path doesn't exist")
