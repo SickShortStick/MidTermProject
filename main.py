@@ -26,21 +26,17 @@ class Folder:
 class FileSystem:
 
     def __init__(self):
-        self.root_folder = Folder('/')
+        self.root_folder = Folder('root')
         self.current_folder = self.root_folder
-        self.current_path = '/'
+        self.current_path = 'root/'
 
     def ls(self, destination_folder=None):
         if destination_folder == None:
-            for folder in file_system.current_folder.folders:
-                print(folder)
-            for file_name, file in file_system.current_folder.files.items():
-                print(file_name)
-        else:
-            for folder in destination_folder.folders:
-                print(folder)
-            for file_name, file in destination_folder.files.items():
-                print(file_name)
+            destination_folder = file_system.current_folder
+        for folder in destination_folder.folders:
+            print(f'{folder} Folder')
+        for file_name, file in destination_folder.files.items():
+            print(f'{file_name} File')
 
     def cd(self, destination_folder, destination_path):
         file_system.current_folder = destination_folder
@@ -105,10 +101,21 @@ class FileSystem:
         else:
             print(f"Line {line} doesnt't exist")
 
+    def cp(self, target_entity, destination_folder):
+        if type(target_entity) == Folder:
+            coppied_folder = make_copy_of_folders(target_entity)
+            destination_folder.folders[coppied_folder.name] = coppied_folder
+        else:
+            copy_file = File(target_entity.name)
+            copy_file.contents = target_entity.contents.copy()
+            copy_file.parent = destination_folder
+            destination_folder.files[copy_file.name] = copy_file
+
 
 file_system = FileSystem()
 
 def proccess_input():
+    error = False
     print(f'{file_system.current_path}/$', end='')
     line = input()
     splitted_line = list(line.split())
@@ -199,6 +206,17 @@ def proccess_input():
                 splitted_line = ['', splitted_line[1][:len(splitted_line[1]) - len(splitted_line_slash[-1]) - 1]]
                 starting_folder, starting_path = get_destination_folder_and_path(splitted_line)
             file_system.mv(starting_folder.files.get(splitted_line_slash[-1]) if '.txt' in source_path else starting_folder.folders.get(splitted_line_slash[-1]), destination_folder)
+        case 'cp':
+            source_path = splitted_line[1]
+            destination_path = splitted_line[2]
+            splitted_line_slash = list(splitted_line[1].split('/'))
+            destination_folder, destination_path = get_destination_folder_and_path(destination_path)
+            if len(splitted_line_slash) == 1:
+                starting_folder, starting_path = file_system.current_folder, file_system.current_path
+            else:
+                splitted_line = ['', splitted_line[1][:len(splitted_line[1]) - len(splitted_line_slash[-1]) - 1]]
+                starting_folder, starting_path = get_destination_folder_and_path(splitted_line)
+                file_system.cp(starting_folder.files.get(splitted_line_slash[-1]) if '.txt' in source_path else starting_folder.folders.get(splitted_line_slash[-1]), destination_folder)
         case 'rename':
             splitted_line_slash = list(splitted_line[1].split('/'))
             original_target_name = splitted_line_slash[-1]
@@ -233,7 +251,21 @@ def proccess_input():
             file_system.deline(destination_folder.files.get(file_name), line_index)
 
 
+def make_copy_of_folders(parent: Folder):
 
+    new_parent_node = Folder(parent.name)
+    for file in parent.files.values():
+        new_file = File(file.name)
+        new_file.contents = file.contents.copy()
+        new_file.parent = new_parent_node
+        new_parent_node.files[new_file.name] = new_file
+
+    for folder in parent.folders.values():
+        new_child_node = make_copy_of_folders(folder)
+        new_child_node.parent = new_parent_node
+        new_parent_node.folders[new_child_node.name] = new_child_node
+
+    return new_parent_node
 
 def traverse_linked_list(folders_path_list):
     temp_folder = file_system.current_folder
